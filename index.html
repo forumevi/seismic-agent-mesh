@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SEISMIC // Autonomous Agent Shielded Terminal</title>
+  <title>SEISMIC // Shielded Autonomous Agent Terminal</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -19,9 +19,16 @@
     .btn-primary:hover { background: #2ea043; }
     .btn-key { background: #da3633; color: #fff; box-shadow: 0 0 12px rgba(218, 54, 51, 0.4); }
     .btn-key-active { background: #1f6feb; color: #fff; box-shadow: 0 0 12px rgba(31, 111, 235, 0.4); }
-    .guide-step { background: #161b22; border: 1px solid #30363d; padding: 0.8rem 1rem; border-radius: 6px; font-size: 0.8rem; flex: 1; }
-    .guide-step.active { border-color: #539bf5; background: #1f6feb15; color: #f0f6fc; }
+    
+    /* Dynamic Interactive Step Styles */
+    .guide-step { background: #0d1117; border: 1px solid #21262d; padding: 1rem; border-radius: 8px; font-size: 0.8rem; flex: 1; transition: all 0.3s ease; opacity: 0.5; }
+    .guide-step.active { border-color: #539bf5; background: #1f6feb15; color: #f0f6fc; opacity: 1; box-shadow: 0 0 12px rgba(83, 155, 245, 0.2); }
+    .guide-step.completed { border-color: #238636; background: #23863610; opacity: 0.9; }
+
     .code-block { background: #080c14; padding: 0.6rem; border-radius: 4px; border: 1px solid #21262d; font-size: 0.75rem; color: #d29922; word-break: break-all; }
+    
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; margin-right: 8px; }
   </style>
 </head>
 <body>
@@ -34,21 +41,31 @@
       const [account, setAccount] = useState(null);
       const [viewingKeyActive, setViewingKeyActive] = useState(false);
       const [isProcessing, setIsProcessing] = useState(false);
-      const [statusMsg, setStatusMsg] = useState('System Initialized');
+      const [statusMsg, setStatusMsg] = useState('Waiting for Wallet Connection');
       const [transactions, setTransactions] = useState([]);
-      const [logs, setLogs] = useState(['[SYSTEM] Initialized Seismic ZK Telemetry Terminal v2.4...', '[NETWORK] Target RPC: https://testnet-1.seismictest.net/rpc']);
+      const [logs, setLogs] = useState(['[SYSTEM] Seismic ZK Telemetry Terminal v2.5 Online', '[NETWORK] RPC: https://testnet-1.seismictest.net/rpc']);
 
       const addLog = (msg) => {
         setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 7)]);
       };
 
+      // Auto Step State Engine
+      const getCurrentStep = () => {
+        if (!account || transactions.length === 0) return 1;
+        if (transactions.length > 0 && !viewingKeyActive) return 2;
+        if (transactions.length > 0 && viewingKeyActive) return 3;
+        return 1;
+      };
+
+      const currentStep = getCurrentStep();
+
       const connectWallet = async () => {
-        if (!window.ethereum) return alert('Install Zerion, Rabby or MetaMask!');
+        if (!window.ethereum) return alert('Please install a Web3 Wallet (Zerion, MetaMask, Rabby)!');
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
           setAccount(accounts[0]);
-          setStatusMsg('Agent Wallet Synchronized');
-          addLog(`Agent Wallet Connected: ${accounts[0]}`);
+          setStatusMsg('Ready to Trigger Payment');
+          addLog(`Agent Connected: ${accounts[0]}`);
         } catch (err) {
           setStatusMsg('Wallet Connection Cancelled');
         }
@@ -56,23 +73,29 @@
 
       const executeTx = async () => {
         if (!account) return alert('Please connect your agent wallet first!');
+        if (isProcessing) return; // Prevent double trigger
         
         setIsProcessing(true);
-        setStatusMsg('Awaiting Cryptographic Signature...');
-        addLog('Initiating Autonomous Micropayment Escrow Circuit...');
+        setStatusMsg('1/2: Awaiting Signature in Wallet...');
+        addLog('Requesting Wallet Signature for ZK Escrow Protocol...');
 
         try {
-          const msg = `Seismic Shielded Agent Protocol:\nContract: 0x71C...A89\nAction: AI Micropayment Escrow\nNonce: ${Math.floor(Math.random()*1000000)}`;
+          const msg = `Seismic Shielded Agent Escrow:\nChain ID: 5124\nContract: 0x71C9281A4a982E12f94119A8\nTimestamp: ${Date.now()}`;
           const txHash = await window.ethereum.request({
             method: 'personal_sign',
             params: [msg, account],
           });
 
-          addLog('Generating Off-Chain ZK-SNARK & TEE Attestation...');
-          addLog(`Shielded State Settled. Tx: ${txHash.slice(0,14)}...`);
-          setStatusMsg('Payment Executed & Encrypted!');
+          setStatusMsg('2/2: Computing ZK Proof & Settling State...');
+          addLog('Wallet Signed. Generating Off-Chain ZK-SNARK Attestation...');
 
-          const tasks = ['AI Inference Escrow', 'Swarm Agent Settlement', 'LLM Vector Search Fee'];
+          // Simulate 1.2s delay for ZK proof feeling
+          await new Promise(r => setTimeout(r, 1200));
+
+          addLog(`Shielded State Settled On-Chain. Tx: ${txHash.slice(0,14)}...`);
+          setStatusMsg('✅ Payment Executed Successfully!');
+
+          const tasks = ['AI Inference Escrow', 'Swarm Agent Settlement', 'Vector DB Query Escrow'];
           const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
 
           const newTx = {
@@ -84,14 +107,14 @@
             decryptedAmount: '0.0001 SEIS',
             gasUsed: '21000',
             task: randomTask,
-            proofTime: (Math.random() * 40 + 190).toFixed(1) + 'ms'
+            proofTime: (Math.random() * 30 + 190).toFixed(1) + 'ms'
           };
 
           setTransactions(prev => [newTx, ...prev]);
 
         } catch (err) {
-          addLog('Transaction Aborted by Agent User.');
-          setStatusMsg('Transaction Cancelled');
+          addLog('Transaction Canceled or Rejected in Wallet.');
+          setStatusMsg('Execution Canceled');
         } finally {
           setIsProcessing(false);
         }
@@ -121,7 +144,7 @@
               <button 
                 onClick={() => {
                   setViewingKeyActive(!viewingKeyActive);
-                  addLog(`Viewing Key status: ${!viewingKeyActive ? 'ACTIVE (Decrypted)' : 'OFF (Encrypted)'}`);
+                  addLog(`Viewing Key state: ${!viewingKeyActive ? 'ACTIVE (Decrypted)' : 'OFF (Encrypted)'}`);
                 }}
                 className={`btn ${viewingKeyActive ? 'btn-key-active' : 'btn-key'}`}
               >
@@ -130,49 +153,75 @@
             </div>
           </div>
 
-          {/* Guide Steps */}
+          {/* DYNAMIC INTERACTIVE STEPS */}
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div className={`guide-step ${account && transactions.length === 0 ? 'active' : ''}`}>
-              <strong>Step 1: Trigger Agent Payment</strong>
-              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Executes an encrypted micro-transaction on Seismic Testnet.</div>
+            <div className={`guide-step ${currentStep === 1 ? 'active' : 'completed'}`}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                <strong>STEP 1: Trigger Agent Payment</strong>
+                <span style={{ fontSize: '0.75rem', color: currentStep > 1 ? '#3fb950' : '#539bf5' }}>
+                  {currentStep > 1 ? '✓ Done' : '👉 ACTION REQUIRED'}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Connect wallet and click the green payment button below.</div>
             </div>
-            <div className={`guide-step ${transactions.length > 0 && !viewingKeyActive ? 'active' : ''}`}>
-              <strong>Step 2: Inspect Public Observer Panel</strong>
-              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Observe how public nodes only see raw encrypted hex data.</div>
+
+            <div className={`guide-step ${currentStep === 2 ? 'active' : (currentStep > 2 ? 'completed' : '')}`}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                <strong>STEP 2: Observe Public State</strong>
+                <span style={{ fontSize: '0.75rem', color: currentStep === 2 ? '#539bf5' : (currentStep > 2 ? '#3fb950' : '#768390') }}>
+                  {currentStep === 2 ? '👉 CURRENT STEP' : (currentStep > 2 ? '✓ Done' : 'Pending Step 1')}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Notice how public nodes only see encrypted raw hex payload.</div>
             </div>
-            <div className={`guide-step ${transactions.length > 0 && viewingKeyActive ? 'active' : ''}`}>
-              <strong>Step 3: Activate Viewing Key</strong>
-              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Unlocks off-chain ZK decryption for authorized agent state.</div>
+
+            <div className={`guide-step ${currentStep === 3 ? 'active' : ''}`}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                <strong>STEP 3: Toggle Viewing Key</strong>
+                <span style={{ fontSize: '0.75rem', color: currentStep === 3 ? '#3fb950' : '#768390' }}>
+                  {currentStep === 3 ? '🎉 FULL ZK DECRYPTION COMPLETE' : 'Pending Step 2'}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Click "Viewing Key" at top right to unlock ZK decrypted metrics.</div>
             </div>
           </div>
 
-          {/* Action Bar */}
+          {/* Action Trigger Card */}
           <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
               <button 
                 onClick={executeTx} 
                 disabled={isProcessing || !account}
                 className="btn btn-primary"
-                style={{ opacity: account ? 1 : 0.5, cursor: account ? 'pointer' : 'not-allowed', fontSize: '1rem' }}
+                style={{ opacity: (account && !isProcessing) ? 1 : 0.6, cursor: (account && !isProcessing) ? 'pointer' : 'not-allowed', fontSize: '1rem', display: 'flex', alignItems: 'center' }}
               >
-                {isProcessing ? '⏳ Computing ZK Proof...' : '⚡ Trigger Agent Payment (0.0001 SEIS)'}
+                {isProcessing ? (
+                  <>
+                    <span className="spinner"></span>
+                    Executing ZK Proof...
+                  </>
+                ) : (
+                  '⚡ Trigger Agent Payment (0.0001 SEIS)'
+                )}
               </button>
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#768390', textTransform: 'uppercase' }}>Terminal Status</div>
-                <div style={{ color: '#539bf5', fontWeight: 'bold', fontSize: '0.95rem' }}>{statusMsg}</div>
+                <div style={{ color: isProcessing ? '#d29922' : '#539bf5', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                  {statusMsg}
+                </div>
               </div>
             </div>
 
             <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#768390' }}>
-              <div>Network Target: <span style={{ color: '#f0f6fc' }}>Seismic Testnet L1</span></div>
+              <div>Target Chain: <span style={{ color: '#f0f6fc' }}>Seismic Testnet L1</span></div>
               <div>RPC Endpoint: <span style={{ color: '#3fb950' }}>testnet-1.seismictest.net</span></div>
             </div>
           </div>
 
-          {/* Dual Console */}
+          {/* Dual Console Matrix */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
             
-            {/* Left: Public Observer */}
+            {/* Left Panel */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #21262d', paddingBottom: '0.6rem' }}>
                 <h3 style={{ color: '#f0f6fc', margin: 0, fontSize: '1rem' }}>🌐 Public Observer State (On-Chain)</h3>
@@ -184,7 +233,7 @@
 
               {transactions.length === 0 ? (
                 <div style={{ border: '1px dashed #30363d', borderRadius: '6px', padding: '3rem 1rem', textAlign: 'center', color: '#484f58', fontSize: '0.85rem' }}>
-                  No telemetry captured. Click "Trigger Agent Payment" to generate on-chain activity.
+                  No telemetry captured. Click "Trigger Agent Payment" above.
                 </div>
               ) : (
                 transactions.map(tx => (
@@ -197,15 +246,15 @@
                       {tx.encryptedPayload} <br/><span style={{ color: '#da3633', fontWeight: 'bold' }}>[SHIELDED STATE - AMOUNT & TASK HIDDEN]</span>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#768390', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Target Contract: {tx.contract}...</span>
-                      <span>Gas: {tx.gasUsed}</span>
+                      <span>Contract: {tx.contract}...</span>
+                      <span>Gas Used: {tx.gasUsed}</span>
                     </div>
                   </div>
                 ))
               )}
             </div>
 
-            {/* Right: Authorized Agent State */}
+            {/* Right Panel */}
             <div className={`card ${viewingKeyActive ? 'card-active' : ''}`}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #21262d', paddingBottom: '0.6rem' }}>
                 <h3 style={{ color: '#f0f6fc', margin: 0, fontSize: '1rem' }}>🔑 Authorized Agent State (Viewing Key)</h3>
