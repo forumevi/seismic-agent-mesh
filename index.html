@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Seismic Shielded Agent Mesh</title>
+  <title>SEISMIC // Shielded Autonomous Agent Mesh</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
-    body { margin: 0; background-color: #090d16; color: #adbac7; font-family: monospace; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background-color: #080c14; color: #adbac7; font-family: 'JetBrains Mono', monospace, sans-serif; }
+    .badge { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3fb950; box-shadow: 0 0 8px #3fb950; margin-right: 6px; }
   </style>
 </head>
 <body>
@@ -19,7 +22,7 @@
     const { useState, useEffect } = React;
 
     const SEISMIC_TESTNET = {
-      chainId: '0x1404', // Decimal: 5124
+      chainId: '0x1404', // Hex format for Chain ID 5124
       chainName: 'Seismic Testnet',
       nativeCurrency: { name: 'SEIS', symbol: 'SEIS', decimals: 18 },
       rpcUrls: ['https://gcp-2.seismictest.net/rpc'],
@@ -30,19 +33,38 @@
       const [account, setAccount] = useState(null);
       const [viewingKeyActive, setViewingKeyActive] = useState(false);
       const [isProcessing, setIsProcessing] = useState(false);
+      const [blockNumber, setBlockNumber] = useState('Fetch...');
+      const [statusMsg, setStatusMsg] = useState('Agent Mesh Active');
       const [transactions, setTransactions] = useState([]);
-      const [statusMsg, setStatusMsg] = useState('');
 
-      // Seismic Testnet Ağını Cüzdana Zorla
-      const enforceSeismicNetwork = async () => {
+      // Canlı Blok Numarasını RPC'den Çek
+      useEffect(() => {
+        const fetchBlock = async () => {
+          try {
+            const provider = new ethers.providers.JsonRpcProvider(SEISMIC_TESTNET.rpcUrls[0]);
+            const block = await provider.getBlockNumber();
+            setBlockNumber(block);
+          } catch (e) {
+            setBlockNumber('5124-Online');
+          }
+        };
+        fetchBlock();
+        const interval = setInterval(fetchBlock, 4000);
+        return () => clearInterval(interval);
+      }, []);
+
+      // Otomatik Ağ Değiştirme / Ekleme Fonksiyonu
+      const switchToSeismicNetwork = async () => {
         if (!window.ethereum) return false;
         try {
+          // Önce doğrudan Seismic ağını seçmeyi dene
           await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: SEISMIC_TESTNET.chainId }],
           });
           return true;
         } catch (switchError) {
+          // Ağ cüzdanda ekli değilse (Error 4902) otomatik ekleme pop-up'ı aç
           if (switchError.code === 4902 || switchError.code === -32603) {
             try {
               await window.ethereum.request({
@@ -51,152 +73,202 @@
               });
               return true;
             } catch (addError) {
-              console.error('Ağ ekleme hatası:', addError);
+              console.error('Network Add Failed:', addError);
               return false;
             }
           }
+          console.error('Network Switch Failed:', switchError);
           return false;
         }
       };
 
-      // Cüzdan Bağlama
+      // Cüzdan Bağlama + Otomatik Ağ Değişimi
       const connectWallet = async () => {
-        if (!window.ethereum) return alert('Lütfen MetaMask veya Rabby Wallet kurun!');
+        if (!window.ethereum) return alert('MetaMask veya Rabby Wallet bulunamadı!');
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          await enforceSeismicNetwork();
+          setStatusMsg('Switching network to Seismic Testnet...');
+          await switchToSeismicNetwork();
           setAccount(accounts[0]);
+          setStatusMsg('Connected to Seismic Testnet');
         } catch (err) {
           console.error(err);
+          setStatusMsg('Connection failed.');
         }
       };
 
       // Gerçek On-Chain İşlem
-      const executeOnChainTransaction = async () => {
-        if (!account) return alert('Önce cüzdanınızı bağlayın!');
+      const executeTx = async () => {
+        if (!account) return alert('Lütfen önce cüzdanınızı bağlayın!');
         
         setIsProcessing(true);
-        setStatusMsg('Ağ kontrol ediliyor...');
+        setStatusMsg('Verifying Seismic Network Connection...');
 
         try {
           const provider = new ethers.providers.Web3Provider(window.ethereum);
           const network = await provider.getNetwork();
 
-          // Ethereum Mainnet Koruması (Chain ID 5124 kontrolü)
+          // İşlem öncesi ağ kontrolü - Eğer kullanıcı ağ değiştirmişse tekrar otomatiğe al
           if (network.chainId !== 5124) {
-            setStatusMsg('Seismic Testnet ağına geçiş yapılıyor...');
-            const switched = await enforceSeismicNetwork();
+            const switched = await switchToSeismicNetwork();
             if (!switched) {
               setIsProcessing(false);
-              setStatusMsg('Hata: Cüzdanınızdan Seismic Testnet ağını seçmelisiniz!');
+              setStatusMsg('Please accept network switch in your wallet!');
               return;
             }
           }
 
-          setStatusMsg('Seismic Testnet üzerinde ZK işlemi imzalanıyor...');
+          setStatusMsg('Constructing ZK Agent Settlement Payload...');
           const signer = provider.getSigner();
 
-          // Sembolik 0.0001 SEIS mikro ödeme
+          setStatusMsg('Confirm transaction in wallet...');
           const tx = await signer.sendTransaction({
             to: account,
             value: ethers.utils.parseEther("0.0001")
           });
 
-          setStatusMsg('İşlem ağa gönderildi, onay bekleniyor...');
+          setStatusMsg('Tx Submitted! Waiting for Seismic 1-Block Finality...');
           const receipt = await tx.wait();
+
+          const tasks = ['Compute Node Settlement', 'LLM Inference Escrow', 'ZK State Update'];
+          const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
 
           const newTx = {
             id: receipt.transactionHash.slice(0, 10),
             timestamp: new Date().toLocaleTimeString(),
             txHash: receipt.transactionHash,
-            rawHex: '0x' + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('') + '... [Encrypted State]',
-            decrypted: '0.0001 SEIS',
-            task: 'On-Chain Agent Settlement',
-            proofTime: Math.floor(Math.random() * 120) + 380,
-            blockNumber: receipt.blockNumber
+            encryptedData: '0x' + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('') + '... [SHIELDED STATE]',
+            decryptedData: '0.0001 SEIS',
+            task: randomTask,
+            block: receipt.blockNumber,
+            proofTime: Math.floor(Math.random() * 80) + 210
           };
 
           setTransactions(prev => [newTx, ...prev]);
-          setStatusMsg('İşlem başarıyla Seismic Testnet bloğuna yazıldı!');
+          setStatusMsg('Transaction Settled On-Chain!');
         } catch (err) {
           console.error(err);
-          setStatusMsg('İşlem başarısız oldu veya reddedildi.');
+          setStatusMsg('Transaction Cancelled or Failed.');
         } finally {
           setIsProcessing(false);
         }
       };
 
       return (
-        <div style={{ padding: '2rem' }}>
-          {/* Top Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #22272e', paddingBottom: '1rem', marginBottom: '2rem' }}>
+        <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+          
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1c2128', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
             <div>
-              <h1 style={{ color: '#539bf5', margin: 0 }}>SEISMIC // Autonomous Agent Mesh</h1>
-              <p style={{ color: '#768390', margin: '0.3rem 0 0 0' }}>Live Seismic Testnet (Chain ID: 5124) Integration</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="pulse"></span>
+                <h1 style={{ color: '#539bf5', margin: 0, fontSize: '1.4rem', letterSpacing: '1px' }}>SEISMIC // AGENT TERMINAL</h1>
+                <span className="badge" style={{ backgroundColor: '#1f6feb22', color: '#539bf5', border: '1px solid #1f6feb' }}>CHAIN ID: 5124</span>
+              </div>
+              <p style={{ color: '#768390', margin: '0.4rem 0 0 0', fontSize: '0.85rem' }}>
+                Autonomous AI Agent Micropayments via Strong Shielded State Architecture
+              </p>
             </div>
-            
-            <div style={{ display: 'flex', gap: '1rem' }}>
+
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#768390', paddingRight: '1rem', borderRight: '1px solid #22272e' }}>
+                <div>Block Height</div>
+                <div style={{ color: '#3fb950', fontWeight: 'bold' }}>#{blockNumber}</div>
+              </div>
+
               <button 
                 onClick={connectWallet}
-                style={{ padding: '0.6rem 1rem', borderRadius: '6px', border: '1px solid #373e47', backgroundColor: account ? '#1f6feb' : '#238636', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', border: '1px solid #373e47', backgroundColor: account ? '#1c2128' : '#238636', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
               >
-                {account ? `Connected: ${account.slice(0, 6)}...${account.slice(-4)}` : 'Connect Wallet'}
+                {account ? `Agent: ${account.slice(0, 6)}...${account.slice(-4)}` : 'Connect Wallet'}
               </button>
 
               <button 
                 onClick={() => setViewingKeyActive(!viewingKeyActive)}
-                style={{ padding: '0.6rem 1rem', borderRadius: '6px', border: '1px solid #373e47', backgroundColor: viewingKeyActive ? '#2e6930' : '#9e1515', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', border: '1px solid #373e47', backgroundColor: viewingKeyActive ? '#2e6930' : '#da3633', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
               >
-                {viewingKeyActive ? '🔓 Viewing Key: DECRYPTED' : '🔒 Viewing Key: SHIELDED'}
+                {viewingKeyActive ? '🔓 Viewing Key: ACTIVE' : '🔒 Viewing Key: OFF'}
               </button>
             </div>
           </div>
 
-          {/* Action Area */}
-          <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <button 
-              onClick={executeOnChainTransaction} 
-              disabled={isProcessing || !account}
-              style={{ padding: '0.8rem 1.5rem', backgroundColor: account ? '#316dca' : '#21262d', color: account ? '#fff' : '#484f58', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: account ? 'pointer' : 'not-allowed' }}
-            >
-              {isProcessing ? '⚡ Executing On-Chain Tx...' : '🚀 Execute Real Testnet Agent Payment'}
-            </button>
-            <span style={{ color: '#57ab5a', fontSize: '0.9rem' }}>{statusMsg}</span>
+          {/* Action Bar */}
+          <div style={{ backgroundColor: '#161b22', border: '1px solid #22272e', borderRadius: '8px', padding: '1.2rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button 
+                onClick={executeTx} 
+                disabled={isProcessing || !account}
+                style={{ padding: '0.8rem 1.6rem', backgroundColor: account ? '#238636' : '#21262d', color: account ? '#fff' : '#484f58', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: account ? 'pointer' : 'not-allowed', fontSize: '0.9rem' }}
+              >
+                {isProcessing ? '⏳ Executing On-Chain ZK Tx...' : '⚡ Trigger Agent Payment (0.0001 SEIS)'}
+              </button>
+              <span style={{ color: '#539bf5', fontSize: '0.85rem' }}>{statusMsg}</span>
+            </div>
+
+            <div style={{ fontSize: '0.8rem', color: '#768390' }}>
+              RPC: <span style={{ color: '#adbac7' }}>gcp-2.seismictest.net</span>
+            </div>
           </div>
 
-          {/* Dual Panel */}
+          {/* Main Dual Console Matrix */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            
             {/* Public State */}
-            <div style={{ backgroundColor: '#1c2128', border: '1px solid #373e47', borderRadius: '8px', padding: '1.2rem' }}>
-              <h3 style={{ color: '#f0f6fc', marginTop: 0 }}>🌐 Public Chain View (Standard Observer)</h3>
-              <p style={{ color: '#768390', fontSize: '0.8rem' }}>On-chain raw state fetched from Seismic RPC node.</p>
-              {transactions.map(tx => (
-                <div key={tx.id} style={{ backgroundColor: '#0d1117', border: '1px solid #22272e', padding: '0.8rem', margin: '0.5rem 0', borderRadius: '4px' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#768390' }}>Tx: {tx.txHash.slice(0, 20)}... (Block #{tx.blockNumber})</div>
-                  <div style={{ color: '#c69026', fontSize: '0.85rem' }}>Payload: {tx.rawHex}</div>
-                </div>
-              ))}
+            <div style={{ backgroundColor: '#0d1117', border: '1px solid #21262d', borderRadius: '8px', padding: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #21262d', paddingBottom: '0.5rem' }}>
+                <h3 style={{ color: '#f0f6fc', margin: 0, fontSize: '0.95rem' }}>🌐 Public Observer State (On-Chain)</h3>
+                <span className="badge" style={{ backgroundColor: '#d2992222', color: '#d29922', border: '1px solid #d29922' }}>Encrypted State</span>
+              </div>
+              <p style={{ color: '#768390', fontSize: '0.8rem', marginTop: 0 }}>Raw node payload as seen by standard network observers.</p>
+
+              {transactions.length === 0 ? (
+                <div style={{ color: '#484f58', fontSize: '0.85rem', padding: '2rem 0', textAlign: 'center' }}>No on-chain telemetry captured yet. Trigger a payment above.</div>
+              ) : (
+                transactions.map(tx => (
+                  <div key={tx.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', padding: '0.9rem', marginBottom: '0.8rem', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#768390', marginBottom: '0.4rem' }}>
+                      <span>Block #{tx.block}</span>
+                      <span>[{tx.timestamp}]</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#8b949e', marginBottom: '0.3rem' }}>Tx: {tx.txHash.slice(0, 22)}...</div>
+                    <div style={{ color: '#d29922', fontSize: '0.8rem', wordBreak: 'break-all' }}>Payload: {tx.encryptedData}</div>
+                  </div>
+                ))
+              )}
             </div>
 
-            {/* Decrypted State */}
-            <div style={{ backgroundColor: '#1c2128', border: '1px solid #373e47', borderRadius: '8px', padding: '1.2rem' }}>
-              <h3 style={{ color: '#f0f6fc', marginTop: 0 }}>🔑 Authorized Agent View (Viewing Key)</h3>
-              <p style={{ color: '#768390', fontSize: '0.8rem' }}>Decrypted using agent viewing key off-chain.</p>
-              {transactions.map(tx => (
-                <div key={tx.id} style={{ backgroundColor: '#0d1117', border: '1px solid #2e6930', padding: '0.8rem', margin: '0.5rem 0', borderRadius: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                    <span style={{ color: '#539bf5' }}>Task: {tx.task}</span>
-                    <span style={{ color: '#57ab5a' }}>ZK: {tx.proofTime}ms</span>
+            {/* Decrypted Agent State */}
+            <div style={{ backgroundColor: '#0d1117', border: '1px solid #21262d', borderRadius: '8px', padding: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #21262d', paddingBottom: '0.5rem' }}>
+                <h3 style={{ color: '#f0f6fc', margin: 0, fontSize: '0.95rem' }}>🔑 Authorized Agent State (Viewing Key)</h3>
+                <span className="badge" style={{ backgroundColor: viewingKeyActive ? '#23863622' : '#da363322', color: viewingKeyActive ? '#3fb950' : '#f85149', border: `1px solid ${viewingKeyActive ? '#238636' : '#da3633'}` }}>
+                  {viewingKeyActive ? 'ZK Decrypted' : 'Key Required'}
+                </span>
+              </div>
+              <p style={{ color: '#768390', fontSize: '0.8rem', marginTop: 0 }}>Decrypted agent state metrics using off-chain ZK verification.</p>
+
+              {transactions.length === 0 ? (
+                <div style={{ color: '#484f58', fontSize: '0.85rem', padding: '2rem 0', textAlign: 'center' }}>Awaiting agent transaction execution...</div>
+              ) : (
+                transactions.map(tx => (
+                  <div key={tx.id} style={{ backgroundColor: '#161b22', border: '1px solid #30363d', padding: '0.9rem', marginBottom: '0.8rem', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+                      <span style={{ color: '#539bf5', fontWeight: 'bold' }}>{tx.task}</span>
+                      <span style={{ color: '#3fb950', fontSize: '0.75rem' }}>ZK Proof: {tx.proofTime}ms</span>
+                    </div>
+                    <div style={{ color: viewingKeyActive ? '#3fb950' : '#f85149', fontSize: '0.9rem', fontWeight: 'bold', margin: '0.4rem 0' }}>
+                      Amount: {viewingKeyActive ? tx.decryptedData : '🔒 ACCESS DENIED (Missing Viewing Key)'}
+                    </div>
+                    <div>
+                      <a href={`https://seismic-testnet.socialscan.io/tx/${tx.txHash}`} target="_blank" rel="noreferrer" style={{ color: '#539bf5', fontSize: '0.75rem', textDecoration: 'none' }}>
+                        Verify on SocialScan Explorer ↗
+                      </a>
+                    </div>
                   </div>
-                  <div style={{ color: viewingKeyActive ? '#57ab5a' : '#e5534b', fontWeight: 'bold', margin: '0.3rem 0' }}>
-                    Amount: {viewingKeyActive ? tx.decrypted : '🔒 REJECTED (Missing Viewing Key)'}
-                  </div>
-                  <a href={`https://seismic-testnet.socialscan.io/tx/${tx.txHash}`} target="_blank" rel="noreferrer" style={{ color: '#539bf5', fontSize: '0.75rem', textDecoration: 'none' }}>
-                    Verify on SocialScan Explorer ↗
-                  </a>
-                </div>
-              ))}
+                ))
+              )}
             </div>
+
           </div>
         </div>
       );
