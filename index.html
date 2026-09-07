@@ -19,7 +19,7 @@
     const { useState, useEffect } = React;
 
     const SEISMIC_TESTNET = {
-      chainId: '0x1404', // 5124 Hex
+      chainId: '0x1404', // Decimal: 5124
       chainName: 'Seismic Testnet',
       nativeCurrency: { name: 'SEIS', symbol: 'SEIS', decimals: 18 },
       rpcUrls: ['https://gcp-2.seismictest.net/rpc'],
@@ -33,49 +33,76 @@
       const [transactions, setTransactions] = useState([]);
       const [statusMsg, setStatusMsg] = useState('');
 
-      // Cüzdan Bağlama ve Ağ Değiştirme
-      const connectWallet = async () => {
-        if (!window.ethereum) return alert('Lütfen MetaMask veya EVM uyumlu bir cüzdan kurun!');
+      // Seismic Testnet Ağını Cüzdana Zorla
+      const enforceSeismicNetwork = async () => {
+        if (!window.ethereum) return false;
         try {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          setAccount(accounts[0]);
-
-          // Seismic Testnet Ağını Cüzdana Ekle/Geç
-          try {
-            await window.ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: SEISMIC_TESTNET.chainId }],
-            });
-          } catch (switchError) {
-            if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: SEISMIC_TESTNET.chainId }],
+          });
+          return true;
+        } catch (switchError) {
+          if (switchError.code === 4902 || switchError.code === -32603) {
+            try {
               await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [SEISMIC_TESTNET],
               });
+              return true;
+            } catch (addError) {
+              console.error('Ağ ekleme hatası:', addError);
+              return false;
             }
           }
+          return false;
+        }
+      };
+
+      // Cüzdan Bağlama
+      const connectWallet = async () => {
+        if (!window.ethereum) return alert('Lütfen MetaMask veya Rabby Wallet kurun!');
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          await enforceSeismicNetwork();
+          setAccount(accounts[0]);
         } catch (err) {
           console.error(err);
         }
       };
 
-      // Gerçek Testnet İşlemi Tetikleme
+      // Gerçek On-Chain İşlem
       const executeOnChainTransaction = async () => {
         if (!account) return alert('Önce cüzdanınızı bağlayın!');
+        
         setIsProcessing(true);
-        setStatusMsg('Seismic Testnet üzerinde ZK işlemi imzalanıyor...');
+        setStatusMsg('Ağ kontrol ediliyor...');
 
         try {
           const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const network = await provider.getNetwork();
+
+          // Ethereum Mainnet Koruması (Chain ID 5124 kontrolü)
+          if (network.chainId !== 5124) {
+            setStatusMsg('Seismic Testnet ağına geçiş yapılıyor...');
+            const switched = await enforceSeismicNetwork();
+            if (!switched) {
+              setIsProcessing(false);
+              setStatusMsg('Hata: Cüzdanınızdan Seismic Testnet ağını seçmelisiniz!');
+              return;
+            }
+          }
+
+          setStatusMsg('Seismic Testnet üzerinde ZK işlemi imzalanıyor...');
           const signer = provider.getSigner();
 
-          // Kendi adresine sembolik 0.0001 SEIS mikro ödeme testi
+          // Sembolik 0.0001 SEIS mikro ödeme
           const tx = await signer.sendTransaction({
             to: account,
             value: ethers.utils.parseEther("0.0001")
           });
 
-          setStatusMsg('İşlem ağa gönderildi, blok onayı bekleniyor...');
+          setStatusMsg('İşlem ağa gönderildi, onay bekleniyor...');
           const receipt = await tx.wait();
 
           const newTx = {
@@ -90,10 +117,10 @@
           };
 
           setTransactions(prev => [newTx, ...prev]);
-          setStatusMsg('İşlem başarıyla bloğa yazıldı!');
+          setStatusMsg('İşlem başarıyla Seismic Testnet bloğuna yazıldı!');
         } catch (err) {
           console.error(err);
-          setStatusMsg('İşlem başarısız veya reddedildi.');
+          setStatusMsg('İşlem başarısız oldu veya reddedildi.');
         } finally {
           setIsProcessing(false);
         }
