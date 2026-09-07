@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seismic Shielded Agent Mesh</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { margin: 0; background-color: #090d16; color: #adbac7; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    function App() {
+      const [viewingKeyActive, setViewingKeyActive] = useState(false);
+      const [isGenerating, setIsGenerating] = useState(false);
+      const [transactions, setTransactions] = useState([]);
+
+      const executePayment = () => {
+        setIsGenerating(true);
+        setTimeout(() => {
+          const mockHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+          const randomAmount = (Math.random() * 0.2 + 0.05).toFixed(4);
+          const tasks = ['LLM Inference Payment', 'Data Pipeline Escrow', 'Compute Settlement'];
+          
+          const newTx = {
+            id: Math.random().toString(36).substring(2, 9),
+            timestamp: new Date().toLocaleTimeString(),
+            txHash: mockHash,
+            rawHex: '0x' + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('') + '...',
+            decrypted: randomAmount + ' SEIS',
+            task: tasks[Math.floor(Math.random() * tasks.length)],
+            proofTime: Math.floor(Math.random() * 180) + 310
+          };
+
+          setTransactions(prev => [newTx, ...prev]);
+          setIsGenerating(false);
+        }, 700);
+      };
+
+      return (
+        <div style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #22272e', paddingBottom: '1rem', marginBottom: '2rem' }}>
+            <div>
+              <h1 style={{ color: '#539bf5', margin: 0 }}>SEISMIC // Autonomous Agent Mesh</h1>
+              <p style={{ color: '#768390', margin: '0.3rem 0 0 0' }}>Strong Shielded State & ZK Telemetry Terminal</p>
+            </div>
+            <button 
+              onClick={() => setViewingKeyActive(!viewingKeyActive)}
+              style={{ padding: '0.6rem 1rem', borderRadius: '6px', border: '1px solid #373e47', backgroundColor: viewingKeyActive ? '#2e6930' : '#9e1515', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              {viewingKeyActive ? '🔓 Viewing Key: DECRYPTED' : '🔒 Viewing Key: SHIELDED'}
+            </button>
+          </div>
+
+          <button 
+            onClick={executePayment} 
+            disabled={isGenerating}
+            style={{ padding: '0.8rem 1.5rem', backgroundColor: '#316dca', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '2rem' }}
+          >
+            {isGenerating ? '⏳ Generating ZK Proof...' : '⚡ Simulate Autonomous Agent Task Payment'}
+          </button>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div style={{ backgroundColor: '#1c2128', border: '1px solid #373e47', borderRadius: '8px', padding: '1.2rem' }}>
+              <h3 style={{ color: '#f0f6fc', marginTop: 0 }}>🌐 Public Chain View (Standard Observer)</h3>
+              <p style={{ color: '#768390', fontSize: '0.8rem' }}>On-chain state visible to public nodes.</p>
+              {transactions.map(tx => (
+                <div key={tx.id} style={{ backgroundColor: '#0d1117', border: '1px solid #22272e', padding: '0.8rem', margin: '0.5rem 0', borderRadius: '4px' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#768390' }}>Tx: {tx.txHash.slice(0, 18)}...</div>
+                  <div style={{ color: '#c69026', fontSize: '0.85rem' }}>Amount: {tx.rawHex}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ backgroundColor: '#1c2128', border: '1px solid #373e47', borderRadius: '8px', padding: '1.2rem' }}>
+              <h3 style={{ color: '#f0f6fc', marginTop: 0 }}>🔑 Authorized Agent View (Viewing Key)</h3>
+              <p style={{ color: '#768390', fontSize: '0.8rem' }}>Decrypted state verified via ZK proof.</p>
+              {transactions.map(tx => (
+                <div key={tx.id} style={{ backgroundColor: '#0d1117', border: '1px solid #2e6930', padding: '0.8rem', margin: '0.5rem 0', borderRadius: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                    <span style={{ color: '#539bf5' }}>Task: {tx.task}</span>
+                    <span style={{ color: '#57ab5a' }}>ZK: {tx.proofTime}ms</span>
+                  </div>
+                  <div style={{ color: viewingKeyActive ? '#57ab5a' : '#e5534b', fontWeight: 'bold', margin: '0.3rem 0' }}>
+                    Amount: {viewingKeyActive ? tx.decrypted : '🔒 REJECTED (Missing Viewing Key)'}
+                  </div>
+                  <a href={`https://explorer.seismic.systems/tx/${tx.txHash}`} target="_blank" rel="noreferrer" style={{ color: '#539bf5', fontSize: '0.75rem', textDecoration: 'none' }}>
+                    Verify on Seismic Explorer ↗
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
