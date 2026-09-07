@@ -36,8 +36,9 @@
       const [blockNumber, setBlockNumber] = useState('5124-Live');
       const [statusMsg, setStatusMsg] = useState('Agent Mesh Ready');
       const [transactions, setTransactions] = useState([]);
+      const [showWalletNotice, setShowWalletNotice] = useState(false);
 
-      // Cüzdan Bağlantısı Üzerinden Canlı Blok Çekme (CORS Engeli Yok)
+      // Canlı Blok Çekme
       useEffect(() => {
         const fetchBlock = async () => {
           if (window.ethereum) {
@@ -95,33 +96,45 @@
         }
       };
 
-      // Gerçek On-Chain İşlem Tetikleyici
+      // Gerçek On-Chain İşlem (Fix Edilmiş Gaz Limitli & Pop-up Zorlamalı)
       const executeTx = async () => {
         if (!account) return alert('Lütfen önce cüzdanınızı bağlayın!');
         
         setIsProcessing(true);
-        setStatusMsg('Opening wallet popup...');
+        setShowWalletNotice(true);
+        setStatusMsg('Awaiting Confirmation in Wallet...');
+
+        // 20 Saniye Timeout - Butonun Takılı Kalmasını Engeller
+        const timeoutId = setTimeout(() => {
+          if (isProcessing) {
+            setIsProcessing(false);
+            setShowWalletNotice(false);
+            setStatusMsg('Wallet Request Timed Out. Click again.');
+          }
+        }, 20000);
 
         try {
           const provider = new ethers.providers.Web3Provider(window.ethereum);
           
-          // Ağ kontrolü yap ve gerekiyorsa değiştir
           const network = await provider.getNetwork();
           if (network.chainId !== 5124) {
-            setStatusMsg('Switching wallet to Seismic Testnet...');
+            setStatusMsg('Switching to Seismic Testnet...');
             await ensureSeismicNetwork();
           }
 
           const signer = provider.getSigner();
 
-          // Cüzdana Doğrudan İşlem Çağrısı (Pop-up Zorlama)
-          setStatusMsg('Please confirm transaction in your wallet!');
-          const tx = await signer.sendTransaction({
+          // Rabby/MetaMask Kilitlenmesini Önlemek İçin Sabit Gaz Değerleri
+          const txParams = {
             to: account,
-            value: ethers.utils.parseEther("0.0001")
-          });
+            value: ethers.utils.parseEther("0.0001"),
+            gasLimit: ethers.BigNumber.from("21000")
+          };
 
-          setStatusMsg('Tx Submitted! Finalizing block on Seismic...');
+          const tx = await signer.sendTransaction(txParams);
+
+          setShowWalletNotice(false);
+          setStatusMsg('Tx Submitted! Finalizing on Seismic Testnet...');
           const receipt = await tx.wait();
 
           const tasks = ['Compute Node Settlement', 'LLM Inference Escrow', 'ZK State Update'];
@@ -139,16 +152,18 @@
           };
 
           setTransactions(prev => [newTx, ...prev]);
-          setStatusMsg('Transaction Confirmed On-Chain!');
+          setStatusMsg('Transaction Settled On-Chain!');
         } catch (err) {
           console.error('TX Error:', err);
           if (err.code === 4001) {
-            setStatusMsg('Transaction rejected by user.');
+            setStatusMsg('Transaction rejected in wallet.');
           } else {
-            setStatusMsg('Tx Failed: Check SEIS Balance or Network.');
+            setStatusMsg('Tx Failed: Check SEIS Balance in wallet.');
           }
         } finally {
+          clearTimeout(timeoutId);
           setIsProcessing(false);
+          setShowWalletNotice(false);
         }
       };
 
@@ -198,10 +213,16 @@
                 disabled={isProcessing || !account}
                 style={{ padding: '0.8rem 1.6rem', backgroundColor: account ? (isProcessing ? '#316dca' : '#238636') : '#21262d', color: account ? '#fff' : '#484f58', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: account ? 'pointer' : 'not-allowed', fontSize: '0.9rem' }}
               >
-                {isProcessing ? '⏳ Awaiting Wallet Approval...' : '⚡ Trigger Agent Payment (0.0001 SEIS)'}
+                {isProcessing ? '⏳ Confirm in Wallet...' : '⚡ Trigger Agent Payment (0.0001 SEIS)'}
               </button>
               <span style={{ color: '#539bf5', fontSize: '0.85rem' }}>{statusMsg}</span>
             </div>
+
+            {showWalletNotice && (
+              <div style={{ backgroundColor: '#388bfd15', border: '1px solid #388bfd', color: '#539bf5', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                👉 Tarayıcınızın sağ üstündeki Rabby / MetaMask simgesine basıp işlemi onaylayın!
+              </div>
+            )}
 
             <div style={{ fontSize: '0.8rem', color: '#768390' }}>
               RPC: <span style={{ color: '#adbac7' }}>gcp-2.seismictest.net</span>
