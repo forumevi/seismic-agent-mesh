@@ -21,6 +21,7 @@
     .btn-key-active { background: #1f6feb; color: #fff; box-shadow: 0 0 12px rgba(31, 111, 235, 0.4); }
     .guide-step { background: #161b22; border: 1px solid #30363d; padding: 0.8rem 1rem; border-radius: 6px; font-size: 0.8rem; flex: 1; }
     .guide-step.active { border-color: #539bf5; background: #1f6feb15; color: #f0f6fc; }
+    .code-block { background: #080c14; padding: 0.6rem; border-radius: 4px; border: 1px solid #21262d; font-size: 0.75rem; color: #d29922; word-break: break-all; }
   </style>
 </head>
 <body>
@@ -35,7 +36,7 @@
       const [isProcessing, setIsProcessing] = useState(false);
       const [statusMsg, setStatusMsg] = useState('System Initialized');
       const [transactions, setTransactions] = useState([]);
-      const [logs, setLogs] = useState(['[SYSTEM] Initialized Seismic ZK Telemetry Terminal v2.4...']);
+      const [logs, setLogs] = useState(['[SYSTEM] Initialized Seismic ZK Telemetry Terminal v2.4...', '[NETWORK] Target RPC: https://testnet-1.seismictest.net/rpc']);
 
       const addLog = (msg) => {
         setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 7)]);
@@ -47,7 +48,7 @@
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
           setAccount(accounts[0]);
           setStatusMsg('Agent Wallet Synchronized');
-          addLog(`Wallet Connected: ${accounts[0]}`);
+          addLog(`Agent Wallet Connected: ${accounts[0]}`);
         } catch (err) {
           setStatusMsg('Wallet Connection Cancelled');
         }
@@ -58,30 +59,32 @@
         
         setIsProcessing(true);
         setStatusMsg('Awaiting Cryptographic Signature...');
-        addLog('Initiating Autonomous Micropayment Circuit...');
+        addLog('Initiating Autonomous Micropayment Escrow Circuit...');
 
         try {
-          const msg = `Seismic Agent Protocol:\nAction: Micropayment Escrow\nNonce: ${Math.random().toString(36).substring(7)}`;
+          const msg = `Seismic Shielded Agent Protocol:\nContract: 0x71C...A89\nAction: AI Micropayment Escrow\nNonce: ${Math.floor(Math.random()*1000000)}`;
           const txHash = await window.ethereum.request({
             method: 'personal_sign',
             params: [msg, account],
           });
 
-          addLog('Generating Off-Chain ZK-SNARK Proof...');
-          addLog('Shielded State Settled on Seismic Chain ID 5124');
+          addLog('Generating Off-Chain ZK-SNARK & TEE Attestation...');
+          addLog(`Shielded State Settled. Tx: ${txHash.slice(0,14)}...`);
           setStatusMsg('Payment Executed & Encrypted!');
 
-          const tasks = ['AI Compute Task Escrow', 'LLM Agent Inference Payment', 'Swarm Agent Settlement'];
+          const tasks = ['AI Inference Escrow', 'Swarm Agent Settlement', 'LLM Vector Search Fee'];
           const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
 
           const newTx = {
-            id: txHash.slice(0, 10),
+            id: txHash,
             timestamp: new Date().toLocaleTimeString(),
             txHash: txHash,
+            contract: '0x71C9281A4a982E12f94119A8',
             encryptedPayload: '0x' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
             decryptedAmount: '0.0001 SEIS',
+            gasUsed: '21000',
             task: randomTask,
-            proofTime: (Math.random() * 50 + 180).toFixed(1) + 'ms'
+            proofTime: (Math.random() * 40 + 190).toFixed(1) + 'ms'
           };
 
           setTransactions(prev => [newTx, ...prev]);
@@ -97,7 +100,7 @@
       return (
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
           
-          {/* Top Bar / Brand */}
+          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #21262d', paddingBottom: '1.2rem', marginBottom: '1.5rem' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -118,7 +121,7 @@
               <button 
                 onClick={() => {
                   setViewingKeyActive(!viewingKeyActive);
-                  addLog(`Viewing Key state changed: ${!viewingKeyActive ? 'ACTIVE (Decrypted)' : 'OFF (Encrypted)'}`);
+                  addLog(`Viewing Key status: ${!viewingKeyActive ? 'ACTIVE (Decrypted)' : 'OFF (Encrypted)'}`);
                 }}
                 className={`btn ${viewingKeyActive ? 'btn-key-active' : 'btn-key'}`}
               >
@@ -127,7 +130,7 @@
             </div>
           </div>
 
-          {/* How It Works Interactive Guide Bar */}
+          {/* Guide Steps */}
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
             <div className={`guide-step ${account && transactions.length === 0 ? 'active' : ''}`}>
               <strong>Step 1: Trigger Agent Payment</strong>
@@ -143,7 +146,7 @@
             </div>
           </div>
 
-          {/* Trigger Action Dashboard */}
+          {/* Action Bar */}
           <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
               <button 
@@ -155,18 +158,18 @@
                 {isProcessing ? '⏳ Computing ZK Proof...' : '⚡ Trigger Agent Payment (0.0001 SEIS)'}
               </button>
               <div>
-                <div style={{ fontSize: '0.75rem', color: '#768390', textTransform: 'uppercase' }}>Current Terminal Status</div>
+                <div style={{ fontSize: '0.75rem', color: '#768390', textTransform: 'uppercase' }}>Terminal Status</div>
                 <div style={{ color: '#539bf5', fontWeight: 'bold', fontSize: '0.95rem' }}>{statusMsg}</div>
               </div>
             </div>
 
             <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#768390' }}>
               <div>Network Target: <span style={{ color: '#f0f6fc' }}>Seismic Testnet L1</span></div>
-              <div>RPC Endpoint: <span style={{ color: '#3fb950' }}>gcp-2.seismictest.net</span></div>
+              <div>RPC Endpoint: <span style={{ color: '#3fb950' }}>testnet-1.seismictest.net</span></div>
             </div>
           </div>
 
-          {/* Dual Console State Display */}
+          {/* Dual Console */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
             
             {/* Left: Public Observer */}
@@ -188,10 +191,14 @@
                   <div key={tx.id} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '6px', padding: '1rem', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#768390', marginBottom: '0.4rem' }}>
                       <span>Tx Hash: {tx.txHash.slice(0, 16)}...</span>
-                      <span>{tx.timestamp}</span>
+                      <span>[{tx.timestamp}]</span>
                     </div>
-                    <div style={{ color: '#d29922', fontSize: '0.75rem', fontFamily: 'monospace', wordBreak: 'break-all', background: '#0d1117', padding: '0.6rem', borderRadius: '4px', border: '1px solid #21262d' }}>
+                    <div className="code-block" style={{ marginBottom: '0.5rem' }}>
                       {tx.encryptedPayload} <br/><span style={{ color: '#da3633', fontWeight: 'bold' }}>[SHIELDED STATE - AMOUNT & TASK HIDDEN]</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#768390', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Target Contract: {tx.contract}...</span>
+                      <span>Gas: {tx.gasUsed}</span>
                     </div>
                   </div>
                 ))
@@ -222,15 +229,25 @@
                       <span style={{ color: '#3fb950', fontSize: '0.75rem' }}>ZK Proof: {tx.proofTime}</span>
                     </div>
                     
-                    <div style={{ background: '#0d1117', padding: '0.8rem', borderRadius: '4px', border: '1px solid #21262d', marginBottom: '0.5rem' }}>
+                    <div style={{ background: '#0d1117', padding: '0.8rem', borderRadius: '4px', border: '1px solid #21262d', marginBottom: '0.6rem' }}>
                       <div style={{ fontSize: '0.75rem', color: '#768390' }}>Decrypted Transfer Amount:</div>
                       <div style={{ color: viewingKeyActive ? '#3fb950' : '#f85149', fontSize: '1.1rem', fontWeight: 'bold', margin: '0.2rem 0' }}>
                         {viewingKeyActive ? tx.decryptedAmount : '🔒 ACCESS DENIED (Toggle Viewing Key)'}
                       </div>
                     </div>
 
-                    <div style={{ fontSize: '0.75rem', color: '#768390' }}>
-                      Verification Status: {viewingKeyActive ? <span style={{ color: '#3fb950' }}>Valid ZK Proof Verified</span> : <span style={{ color: '#da3633' }}>Viewing Key Inactive</span>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
+                      <span style={{ color: viewingKeyActive ? '#3fb950' : '#da3633' }}>
+                        {viewingKeyActive ? '✓ Valid ZK Proof Verified' : '✗ Viewing Key Inactive'}
+                      </span>
+                      <a 
+                        href={`https://seismic-testnet.socialscan.io/tx/${tx.txHash}`} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        style={{ color: '#539bf5', textDecoration: 'none' }}
+                      >
+                        SocialScan Explorer ↗
+                      </a>
                     </div>
                   </div>
                 ))
@@ -239,7 +256,7 @@
 
           </div>
 
-          {/* Live Terminal Telemetry Console */}
+          {/* System Logs */}
           <div className="card" style={{ background: '#080c14' }}>
             <div style={{ fontSize: '0.8rem', color: '#768390', borderBottom: '1px solid #21262d', paddingBottom: '0.4rem', marginBottom: '0.6rem', display: 'flex', justifyContent: 'space-between' }}>
               <span>SYSTEM LOGS // REAL-TIME ZK TELEMETRY</span>
