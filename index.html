@@ -22,7 +22,7 @@
     const { useState, useEffect } = React;
 
     const SEISMIC_TESTNET = {
-      chainId: '0x1404', // Hex format for Chain ID 5124
+      chainId: '0x1404', // 5124 Hex
       chainName: 'Seismic Testnet',
       nativeCurrency: { name: 'SEIS', symbol: 'SEIS', decimals: 18 },
       rpcUrls: ['https://gcp-2.seismictest.net/rpc'],
@@ -33,101 +33,95 @@
       const [account, setAccount] = useState(null);
       const [viewingKeyActive, setViewingKeyActive] = useState(false);
       const [isProcessing, setIsProcessing] = useState(false);
-      const [blockNumber, setBlockNumber] = useState('Fetch...');
-      const [statusMsg, setStatusMsg] = useState('Agent Mesh Active');
+      const [blockNumber, setBlockNumber] = useState('5124-Live');
+      const [statusMsg, setStatusMsg] = useState('Agent Mesh Ready');
       const [transactions, setTransactions] = useState([]);
 
-      // Canlı Blok Numarasını RPC'den Çek
+      // Cüzdan Bağlantısı Üzerinden Canlı Blok Çekme (CORS Engeli Yok)
       useEffect(() => {
         const fetchBlock = async () => {
-          try {
-            const provider = new ethers.providers.JsonRpcProvider(SEISMIC_TESTNET.rpcUrls[0]);
-            const block = await provider.getBlockNumber();
-            setBlockNumber(block);
-          } catch (e) {
-            setBlockNumber('5124-Online');
+          if (window.ethereum) {
+            try {
+              const provider = new ethers.providers.Web3Provider(window.ethereum);
+              const block = await provider.getBlockNumber();
+              setBlockNumber(block);
+            } catch (e) {
+              setBlockNumber('5124-Active');
+            }
           }
         };
         fetchBlock();
-        const interval = setInterval(fetchBlock, 4000);
+        const interval = setInterval(fetchBlock, 5000);
         return () => clearInterval(interval);
-      }, []);
+      }, [account]);
 
-      // Otomatik Ağ Değiştirme / Ekleme Fonksiyonu
-      const switchToSeismicNetwork = async () => {
+      // Güvenli Ağ Değiştirme
+      const ensureSeismicNetwork = async () => {
         if (!window.ethereum) return false;
         try {
-          // Önce doğrudan Seismic ağını seçmeyi dene
           await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: SEISMIC_TESTNET.chainId }],
           });
           return true;
-        } catch (switchError) {
-          // Ağ cüzdanda ekli değilse (Error 4902) otomatik ekleme pop-up'ı aç
-          if (switchError.code === 4902 || switchError.code === -32603) {
+        } catch (err) {
+          if (err.code === 4902 || err.code === -32603) {
             try {
               await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [SEISMIC_TESTNET],
               });
               return true;
-            } catch (addError) {
-              console.error('Network Add Failed:', addError);
+            } catch (addErr) {
+              console.error(addErr);
               return false;
             }
           }
-          console.error('Network Switch Failed:', switchError);
           return false;
         }
       };
 
-      // Cüzdan Bağlama + Otomatik Ağ Değişimi
+      // Cüzdan Bağlama
       const connectWallet = async () => {
         if (!window.ethereum) return alert('MetaMask veya Rabby Wallet bulunamadı!');
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          setStatusMsg('Switching network to Seismic Testnet...');
-          await switchToSeismicNetwork();
+          await ensureSeismicNetwork();
           setAccount(accounts[0]);
-          setStatusMsg('Connected to Seismic Testnet');
+          setStatusMsg('Wallet Connected to Seismic Mesh');
         } catch (err) {
           console.error(err);
-          setStatusMsg('Connection failed.');
+          setStatusMsg('Connection Cancelled');
         }
       };
 
-      // Gerçek On-Chain İşlem
+      // Gerçek On-Chain İşlem Tetikleyici
       const executeTx = async () => {
         if (!account) return alert('Lütfen önce cüzdanınızı bağlayın!');
         
         setIsProcessing(true);
-        setStatusMsg('Verifying Seismic Network Connection...');
+        setStatusMsg('Opening wallet popup...');
 
         try {
           const provider = new ethers.providers.Web3Provider(window.ethereum);
+          
+          // Ağ kontrolü yap ve gerekiyorsa değiştir
           const network = await provider.getNetwork();
-
-          // İşlem öncesi ağ kontrolü - Eğer kullanıcı ağ değiştirmişse tekrar otomatiğe al
           if (network.chainId !== 5124) {
-            const switched = await switchToSeismicNetwork();
-            if (!switched) {
-              setIsProcessing(false);
-              setStatusMsg('Please accept network switch in your wallet!');
-              return;
-            }
+            setStatusMsg('Switching wallet to Seismic Testnet...');
+            await ensureSeismicNetwork();
           }
 
-          setStatusMsg('Constructing ZK Agent Settlement Payload...');
           const signer = provider.getSigner();
 
-          setStatusMsg('Confirm transaction in wallet...');
+          // Cüzdana Doğrudan İşlem Çağrısı (Pop-up Zorlama)
+          setStatusMsg('Please confirm transaction in your wallet!');
           const tx = await signer.sendTransaction({
             to: account,
             value: ethers.utils.parseEther("0.0001")
           });
 
-          setStatusMsg('Tx Submitted! Waiting for Seismic 1-Block Finality...');
+          setStatusMsg('Tx Submitted! Finalizing block on Seismic...');
           const receipt = await tx.wait();
 
           const tasks = ['Compute Node Settlement', 'LLM Inference Escrow', 'ZK State Update'];
@@ -145,10 +139,14 @@
           };
 
           setTransactions(prev => [newTx, ...prev]);
-          setStatusMsg('Transaction Settled On-Chain!');
+          setStatusMsg('Transaction Confirmed On-Chain!');
         } catch (err) {
-          console.error(err);
-          setStatusMsg('Transaction Cancelled or Failed.');
+          console.error('TX Error:', err);
+          if (err.code === 4001) {
+            setStatusMsg('Transaction rejected by user.');
+          } else {
+            setStatusMsg('Tx Failed: Check SEIS Balance or Network.');
+          }
         } finally {
           setIsProcessing(false);
         }
@@ -198,9 +196,9 @@
               <button 
                 onClick={executeTx} 
                 disabled={isProcessing || !account}
-                style={{ padding: '0.8rem 1.6rem', backgroundColor: account ? '#238636' : '#21262d', color: account ? '#fff' : '#484f58', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: account ? 'pointer' : 'not-allowed', fontSize: '0.9rem' }}
+                style={{ padding: '0.8rem 1.6rem', backgroundColor: account ? (isProcessing ? '#316dca' : '#238636') : '#21262d', color: account ? '#fff' : '#484f58', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: account ? 'pointer' : 'not-allowed', fontSize: '0.9rem' }}
               >
-                {isProcessing ? '⏳ Executing On-Chain ZK Tx...' : '⚡ Trigger Agent Payment (0.0001 SEIS)'}
+                {isProcessing ? '⏳ Awaiting Wallet Approval...' : '⚡ Trigger Agent Payment (0.0001 SEIS)'}
               </button>
               <span style={{ color: '#539bf5', fontSize: '0.85rem' }}>{statusMsg}</span>
             </div>
